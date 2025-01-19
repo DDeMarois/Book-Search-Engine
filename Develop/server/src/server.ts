@@ -14,10 +14,10 @@ const server = new ApolloServer({
 });
 
 const startApolloServer = async () => {
-  await server.start();
-
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+await server.start();
 
 app.use('/graphql', expressMiddleware(server as any,
   {
