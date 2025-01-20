@@ -25,7 +25,10 @@ export const authenticateToken = ({ req }: any) => {
 
 export const signToken = (username: string, email: string, _id: unknown) => {
   const payload = { username, email, _id };
-  const secretKey: any = process.env.JWT_SECRET_KEY;
+  const secretKey = process.env.JWT_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('JWT_SECRET_KEY is not defined');
+  }
 
   return jwt.sign({ data: payload }, secretKey, { expiresIn: '3h' });
 };

@@ -6,8 +6,9 @@ export const QUERY_USER = gql`
             _id
             username
             email
+            password
             savedBooks {
-                bookId
+                _id
                 title
                 authors
                 description
@@ -25,7 +26,7 @@ export const GET_ME = gql`
             username
             email
             savedBooks {
-                bookId
+                _id
                 title
                 authors
                 description

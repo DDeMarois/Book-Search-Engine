@@ -1,89 +1,104 @@
-import { User } from '../models/index.js';
+import { User, Book } from '../models/index.js';
 import { signToken, AuthenticationError } from '../services/auth.js';
+
+interface User {
+    _id: string;
+    username: string;
+    email: string;
+    password: string;
+    bookCount: number;
+    savedBooks: Book[];
+}
+interface Book {
+    authors: string[];
+    description: string;
+    bookId: string;
+    image: string;
+    link: string;
+    title: string;
+}
+
 interface AddUserArgs {
     input: {
         username: string;
         email: string;  
         password: string;
-    }
-}
-interface LoginUserArgs{
-    email: string;
-    password: string;
+    };
 }
 interface UserArgs {
-    username: string;
+    userId: string;
 }
 interface SaveBookArgs {
-    input: {
-        authors: string[];
-        description: string;
-        bookId: string;
-        image: string;
-        link: string;
-        title: string;
-    }
+    userId: string;
+    book: Book;
 }
+
 interface DeleteBookArgs {
-    bookId: string;
+    book: Book;
+}
+
+interface Context {
+    user?: {
+        _id: string;
+        username: string;
+        email: string;
+    };
 }
 
 const resolvers = {
     Query: {
-        users: async () => {
-            return User.find().populate('savedBooks');
+        users: async (): Promise<User[]> => {
+            return await User.find()
         },
-        user: async (_parent: any, { username }: UserArgs) => {
-            return User.findOne({ username }).populate('savedBooks');
+        user: async (_parent: unknown, { userId }: UserArgs): Promise<User | null> => {
+            return await User.findOne({ _id: userId })
         },
 
-        me: async (_parent: any, _args: any, context: any) => {
+        me: async (_parent: unknown, _args: unknown, context: Context): Promise<User | null> => {
             if (context.user) {
-                return User.findOne({ _id: context.user._id }).populate('savedBooks');
+                return await User.findOne({ _id: context.user._id })
             }
             throw new AuthenticationError('You need to be logged in!');
         },
     },
     Mutation: {
-        login: async (_parent: any, { email, password }: LoginUserArgs) => {
+        addUser: async (_parent: unknown, { input }: AddUserArgs): Promise<{ token: string; user: User }>=> {
+            const user = await User.create({ ...input });
+            const token = signToken(user.username, user.email, user._id);
+            return { token, user: user.toObject() as User };
+        },
+        login: async (_parent: unknown, { email, password }: { email: string; password: string;}): Promise<{ token: string; user: User }> => {
             const user = await User.findOne({ email });
             if (!user) {
-                throw new AuthenticationError('Incorrect credentials');
+                throw AuthenticationError;
             }
             const correctPw = await user.isCorrectPassword(password);
             if (!correctPw) {
                 throw new AuthenticationError('Incorrect credentials');
             }
             const token = signToken(user.username, user.email, user._id);
-            return { token, user };
+            return { token, user: user.toObject() as User };
         },
 
-        addUser: async (_parent: any, { input }: AddUserArgs) => {
-            const user = await User.create({ ...input });
-            const token = signToken(user.username, user.email, user._id);
-            return { token, user };
-        },
 
-        saveBook: async (_parent: any, { input }: SaveBookArgs, context: any) => {
+        saveBook: async (_parent: unknown, { userId, book }: SaveBookArgs, context: Context): Promise<User | null> => {
             if (context.user) {
-                const updatedUser = await User.findOneAndUpdate(
-                    { _id: context.user._id },
-                    { $addToSet: { savedBooks: input } },
+                return await User.findOneAndUpdate(
+                    { _id: userId },
+                    { $addToSet: { savedBooks: book } },
                     { new: true, runValidators: true }
                 );
-                return updatedUser;
             }
             throw new AuthenticationError('You need to be logged in!');
         },
 
-        removeBook: async (_parent: any, { bookId }: DeleteBookArgs, context: any) => {
+        removeBook: async (_parent: unknown, { book }: DeleteBookArgs, context: Context): Promise<User | null> => {
             if (context.user) {
-                const updatedUser = await User.findOneAndUpdate(
+                return await User.findOneAndUpdate(
                     { _id: context.user._id },
-                    { $pull: { savedBooks: { bookId } } },
+                    { $pull: { savedBooks: book } },
                     { new: true }
-                );
-                return updatedUser;
+                );;
             }
             throw new AuthenticationError('You need to be logged in!');
         },
