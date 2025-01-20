@@ -23,7 +23,7 @@ await db.openUri(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/googleboo
 const PORT = process.env.PORT || 3001;
 const app = express();
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 app.use('/graphql', expressMiddleware(server as any,
