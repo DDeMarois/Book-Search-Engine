@@ -17,34 +17,36 @@ const server = new ApolloServer({
 });
 
 const startApolloServer = async () => {
-await server.start();
-await db();
+  await server.start();
+  await db.openUri(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/googlebooks');
 
-const PORT = process.env.PORT || 3001;
-const app = express();
+  const PORT = process.env.PORT || 3001;
+  const app = express();
 
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
+  app.use(express.json());
 
-app.use('/graphql', expressMiddleware(server as any,
-  {
-    context: authenticateToken as any,
+  // Define the context function
+  const context = async ({ req }: { req: Request }) => {
+    const user = await authenticateToken(req);
+    return { user }; // Return the user or any other context you need
+  };
+
+  // Use expressMiddleware with the context
+  app.use('/graphql', expressMiddleware(server, { context }));
+
+  // Serve static assets in production
+  if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, '../client/build')));
+    app.get('*', (_req: Request, res: Response) => {
+      res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    });
   }
-));
 
-// if we're in production, serve client/build as static assets
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')));
-  app.get('*', (_req: Request, res: Response) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  app.listen(PORT, () => {
+    console.log(`🌍 Now listening on localhost:${PORT}`);
+    console.log(`Use GraphQL at http://localhost:${PORT}/graphql`);
   });
-}
-
-
-app.listen(PORT, () => {
-  console.log(`🌍 Now listening on localhost:${PORT}`);
-  console.log(`Use GraphQL at http://localhost:${PORT}/graphql`);
-});
 };
 
 startApolloServer();

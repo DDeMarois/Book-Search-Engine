@@ -10,8 +10,18 @@ interface UserToken {
 class AuthService {
   // get user data
   getProfile() {
-    return jwtDecode(this.getToken() || '');
+    const token = this.getToken();
+    if (token) {
+      try {
+        return jwtDecode<UserToken>(token);
+      } catch (err) {
+        console.error('Failed to decode token:', err);
+        return null; // Return null or handle the error as appropriate
+      }
+    }
+    return null;
   }
+  
 
   // check if user's logged in
   loggedIn() {

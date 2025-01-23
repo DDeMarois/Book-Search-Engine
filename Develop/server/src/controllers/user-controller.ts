@@ -1,75 +1,76 @@
 import type { Request, Response } from 'express';
-// import user model
 import User from '../models/User.js';
-// import sign token function from auth
 import { signToken } from '../services/auth.js';
 
-// get a single user by either their id or their username
-export const getSingleUser = async (req: Request, res: Response) => {
+// Get a single user by either their id or their username
+export const getSingleUser = async (req: Request, res: Response): Promise<void> => {
   const foundUser = await User.findOne({
     $or: [{ _id: req.user ? req.user._id : req.params.id }, { username: req.params.username }],
   });
 
   if (!foundUser) {
-    return res.status(400).json({ message: 'Cannot find a user with this id!' });
+    res.status(400).json({ message: 'Cannot find a user with this id!' });
+    return;  // Ensure we exit after the response
   }
 
-  return res.json(foundUser);
+  res.json(foundUser);  // Send the found user
 };
 
-// create a user, sign a token, and send it back (to client/src/components/SignUpForm.js)
-export const createUser = async (req: Request, res: Response) => {
+// Create a user, sign a token, and send it back
+export const createUser = async (req: Request, res: Response): Promise<void> => {
   const user = await User.create(req.body);
 
   if (!user) {
-    return res.status(400).json({ message: 'Something is wrong!' });
+    res.status(400).json({ message: 'Something is wrong!' });
+    return;  // Ensure we exit after the response
   }
   const token = signToken(user.username, user.email, user._id);
-  return res.json({ token, user });
+  res.json({ token, user });  // Send token and user back
 };
 
-// login a user, sign a token, and send it back (to client/src/components/LoginForm.js)
-// {body} is destructured req.body
-export const login = async (req: Request, res: Response) => {
+// Login a user, sign a token, and send it back
+export const login = async (req: Request, res: Response): Promise<void> => {
   const user = await User.findOne({ $or: [{ username: req.body.username }, { email: req.body.email }] });
   if (!user) {
-    return res.status(400).json({ message: "Can't find this user" });
+    res.status(400).json({ message: "Can't find this user" });
+    return;  // Exit after response
   }
 
   const correctPw = await user.isCorrectPassword(req.body.password);
 
   if (!correctPw) {
-    return res.status(400).json({ message: 'Wrong password!' });
+    res.status(400).json({ message: 'Wrong password!' });
+    return;  // Exit after response
   }
   const token = signToken(user.username, user.email, user._id);
-  return res.json({ token, user });
+  res.json({ token, user });  // Send token and user back
 };
 
-// save a book to a user's `savedBooks` field by adding it to the set (to prevent duplicates)
-// user comes from `req.user` created in the auth middleware function
-export const saveBook = async (req: Request, res: Response) => {
+// Save a book to a user's `savedBooks` field
+export const saveBook = async (req: Request, res: Response): Promise<void> => {
   try {
     const updatedUser = await User.findOneAndUpdate(
       { _id: req.user._id },
       { $addToSet: { savedBooks: req.body } },
       { new: true, runValidators: true }
     );
-    return res.json(updatedUser);
+    res.json(updatedUser);  // Send updated user
   } catch (err) {
-    console.log(err);
-    return res.status(400).json(err);
+    console.error(err);
+    res.status(400).json(err);  // Send error
   }
 };
 
-// remove a book from `savedBooks`
-export const deleteBook = async (req: Request, res: Response) => {
+// Remove a book from `savedBooks`
+export const deleteBook = async (req: Request, res: Response): Promise<void> => {
   const updatedUser = await User.findOneAndUpdate(
     { _id: req.user._id },
     { $pull: { savedBooks: { bookId: req.params.bookId } } },
     { new: true }
   );
   if (!updatedUser) {
-    return res.status(404).json({ message: "Couldn't find user with this id!" });
+    res.status(404).json({ message: "Couldn't find user with this id!" });
+    return;  // Exit after response
   }
-  return res.json(updatedUser);
+  res.json(updatedUser);  // Send updated user
 };
