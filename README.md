@@ -70,17 +70,6 @@ The app allows users to search for books using the Google Books API and save the
 
 ## Refactoring Details
 
-### Why GraphQL?
-- GraphQL provides more flexibility for clients to request only the data they need.
-- It reduces over-fetching and under-fetching of data.
-- Simplifies API development and documentation with a single endpoint.
-
-### Key Changes
-1. Replaced RESTful API routes with a single GraphQL endpoint.
-2. Added GraphQL schema to define types, queries, and mutations.
-3. Integrated Apollo Server to handle GraphQL requests.
-4. Updated the front-end to use Apollo Client for querying the GraphQL API.
-
 ---
 
 ## Scripts
