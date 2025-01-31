@@ -1,52 +1,73 @@
 import express from 'express';
-import type { Request, Response } from 'express';
+import path from 'path';
+import mongoose from 'mongoose';
+import routes from './routes/index.js';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { typeDefs, resolvers } from './schemas/index.js';
-import { authenticateToken } from './services/auth.js';
-import path from 'node:path';
+import { getUserFromToken } from './services/auth.js';
 import { fileURLToPath } from 'node:url';
-import db from './config/connection.js';
+import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/googlebooks';
+console.log('Server starting...');
+
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+console.log('Express middleware initialized...');
 
 const server = new ApolloServer({
   typeDefs,
   resolvers,
 });
+console.log('Apollo server initialized...');
 
-const startApolloServer = async () => {
-  await server.start();
-  await db.openUri(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/googlebooks');
+await server.start();
+console.log('Apollo server started...');
 
-  const PORT = process.env.PORT || 3001;
-  const app = express();
+app.use('/graphql', expressMiddleware(server, {
+  context: async ({ req }) => {
+    const token = req.headers.authorization?.split(' ')[1] || '';
+    const user = await getUserFromToken(token);
+    return { user };
+  },
+}));
+console.log('Express middleware initialized...');
 
-  app.use(express.urlencoded({ extended: false }));
-  app.use(express.json());
+if (process.env.NODE_ENV === 'production') {
+  console.log('Production environment detected...');
+  app.use(express.static(path.join(__dirname, '../../client/dist')));
+  app.get('*', (_, res) => {
+    res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+  });
+}
 
-  // Define the context function
-  const context = async ({ req }: { req: Request }) => {
-    const user = await authenticateToken(req);
-    return { user }; // Return the user or any other context you need
-  };
+app.use(routes);
+console.log('Routes initialized...');
+console.log('Server starting...');
 
-  // Use expressMiddleware with the context
-  app.use('/graphql', expressMiddleware(server, { context }));
+mongoose.connect(MONGODB_URI);
 
-  // Serve static assets in production
-  if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, '../../client/dist')));
-    app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
-    });
-  }
-
+mongoose.connection.once('connected', () => {
+  console.log('Connected to the database');
   app.listen(PORT, () => {
     console.log(`🌍 Now listening on localhost:${PORT}`);
     console.log(`Use GraphQL at http://localhost:${PORT}/graphql`);
   });
-};
 
-startApolloServer();
+  mongoose.connection.on('error', (err) => {
+    console.error(`Mongoose connection error: ${err}`);
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    console.log('Mongoose disconnected');
+  });
+
+  console.log('Server started...');
+});
