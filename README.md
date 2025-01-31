@@ -68,16 +68,18 @@ The app allows users to search for books using the Google Books API and save the
 
 ---
 
-## Refactoring Details
-
----
-
 ## Scripts
 
 - `npm run start`: Start the production server.
 - `npm run develop`: Start the development server with live reloading.
 - `npm run build`: Build the front-end for production.
 - `npm run test`: Run test cases.
+
+---
+
+## Deployment
+
+Live URL on Render: https://book-search-engine-7dbf.onrender.com
 
 ---
 
