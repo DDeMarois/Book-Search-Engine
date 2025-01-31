@@ -3,7 +3,7 @@ import User from '../models/User.js';
 import { signToken } from '../services/auth.js';
 
 // Get a single user by either their id or their username
-export const getSingleUser = async (req: Request, res: Response): Promise<void> => {
+export const getSingleUser = async (req: Request, res: Response) => {
   const foundUser = await User.findOne({
     $or: [{ _id: req.user ? req.user._id : req.params.id }, { username: req.params.username }],
   });
@@ -17,7 +17,7 @@ export const getSingleUser = async (req: Request, res: Response): Promise<void> 
 };
 
 // Create a user, sign a token, and send it back
-export const createUser = async (req: Request, res: Response): Promise<void> => {
+export const createUser = async (req: Request, res: Response) => {
   const user = await User.create(req.body);
 
   if (!user) {

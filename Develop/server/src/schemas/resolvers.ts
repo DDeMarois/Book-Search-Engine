@@ -1,107 +1,57 @@
-import { User, Book } from '../models/index.js';
-import { signToken, AuthenticationError } from '../services/auth.js';
+import { User } from '../models/index.js';
+import { signToken } from '../services/auth.js';
+import { AuthenticationError } from 'apollo-server-errors';
 
-interface User {
-    _id: string;
-    username: string;
-    email: string;
-    password: string;
-    bookCount: number;
-    savedBooks: Book[];
-}
-interface Book {
-    authors: string[];
-    description: string;
-    bookId: string;
-    image: string;
-    link: string;
-    title: string;
-}
-
-interface AddUserArgs {
-    input: {
-        username: string;
-        email: string;  
-        password: string;
-    };
-}
-interface UserArgs {
-    userId: string;
-}
-interface SaveBookArgs {
-    userId: string;
-    book: Book;
-}
-
-interface DeleteBookArgs {
-    book: Book;
-}
-
-interface Context {
-    user?: {
-        _id: string;
-        username: string;
-        email: string;
-    };
-}
 
 const resolvers = {
     Query: {
-        users: async (): Promise<User[]> => {
-            return await User.find()
-        },
-        user: async (_parent: unknown, { userId }: UserArgs): Promise<User | null> => {
-            return await User.findOne({ _id: userId })
-        },
-
-        me: async (_parent: unknown, _args: unknown, context: Context): Promise<User | null> => {
-            if (context.user) {
-                return await User.findOne({ _id: context.user._id })
-            }
-            throw new AuthenticationError('You need to be logged in!');
-        },
+        me: async (_parent: unknown, _args: unknown, context: { user: any }) => {
+        if (!context.user) {
+        throw new AuthenticationError('You must be logged in!');
+        }
+        return User.findById(context.user._id).populate('savedBooks');
     },
+},
     Mutation: {
-        addUser: async (_parent: unknown, { input }: AddUserArgs): Promise<{ token: string; user: User }>=> {
-            const user = await User.create({ ...input });
-            const token = signToken(user.username, user.email, user._id);
-            return { token, user: user.toObject() as User };
-        },
-        login: async (_parent: unknown, { email, password }: { email: string; password: string;}): Promise<{ token: string; user: User }> => {
-            const user = await User.findOne({ email });
-            if (!user) {
-                throw AuthenticationError;
-            }
-            const correctPw = await user.isCorrectPassword(password);
-            if (!correctPw) {
-                throw new AuthenticationError('Incorrect credentials');
-            }
-            const token = signToken(user.username, user.email, user._id);
-            return { token, user: user.toObject() as User };
-        },
-
-
-        saveBook: async (_parent: unknown, { userId, book }: SaveBookArgs, context: Context): Promise<User | null> => {
-            if (context.user) {
-                return await User.findOneAndUpdate(
-                    { _id: userId },
-                    { $addToSet: { savedBooks: book } },
-                    { new: true, runValidators: true }
-                );
-            }
-            throw new AuthenticationError('You need to be logged in!');
-        },
-
-        removeBook: async (_parent: unknown, { book }: DeleteBookArgs, context: Context): Promise<User | null> => {
-            if (context.user) {
-                return await User.findOneAndUpdate(
-                    { _id: context.user._id },
-                    { $pull: { savedBooks: book } },
-                    { new: true }
-                );;
-            }
-            throw new AuthenticationError('You need to be logged in!');
-        },
+        login: async (_parent: unknown, { email, password }: { email: string; password: string }) => {
+        const user = await User.findOne({ email });
+        if (!user) {
+        throw new AuthenticationError('Incorrect credentials');
+        }
+        const isPasswordValid = await user.isCorrectPassword(password);
+        if (!isPasswordValid) {
+        throw new AuthenticationError('Incorrect credentials');
+        }
+        const token = signToken(user._id.toString(), user.email, user.username);
+        return { token, user };
+    },
+    addUser: async (_parent: unknown, { username, email, password }: { username: string; email: string; password: string }) => {
+        const user = await User.create({ username, email, password });
+        const token = signToken(user._id.toString(), user.email, user.username);
+        return { token, user };
+    },
+    saveBook: async (_parent: unknown, { bookData }: { bookData: any }, context: { user: any }) => {
+        if (!context.user) {
+        throw new AuthenticationError('You must be logged in!');
+        }
+        const updatedUser = await User.findByIdAndUpdate(
+        context.user._id,
+        { $addToSet: { savedBooks: bookData } },
+        { new: true, runValidators: true }
+        ).populate('savedBooks');
+        return updatedUser;
+    },
+    removeBook: async (_parent: unknown, { bookId }: { bookId: string }, context: { user: any }) => {
+        if (!context.user) {
+        throw new AuthenticationError('You must be logged in!');
+        }
+        const updatedUser = await User.findByIdAndUpdate(
+        context.user._id,
+        { $pull: { savedBooks: { bookId } } },
+        { new: true }
+        );
+        return updatedUser;
+    },
     },
 };
 
